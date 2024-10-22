@@ -27,7 +27,7 @@ class AuthServiceProvider extends ServiceProvider
         $this->registerPolicies();
 
         Gate::define('create-task', function ($user) {
-            return $user->role === 'admin';
+            return $user->role === 'admin' || $user->can_create_tasks;
         });
 
         Gate::define('assign-task', function ($user) {

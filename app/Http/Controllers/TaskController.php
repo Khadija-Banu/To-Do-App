@@ -11,34 +11,46 @@ use Illuminate\Support\Facades\Auth;
 
 class TaskController extends Controller
 {
+    //show all task with permission
     public function index(Request $request)
     {
-
         $user = Auth::user();
+        $query = Task::query();
 
         if ($user->role === 'admin') {
-            $tasks = Task::all();
-            $employees = User::where('role', 'employee')->get();  // Fetch employees for assignment
+            if ($request->has('search') && !empty($request->search)) {
+                $query->where('title', 'LIKE', '%' . $request->search . '%');
+            }
+            $tasks = $query->get();
+            $employees = User::where('role', 'employee')->get();
         } else {
-            $tasks = Task::where('can_assign_tasks', $user->id)->get();
-            $employees = collect();  // Empty collection for non-admins
+
+            if ($request->has('search') && !empty($request->search)) {
+
+                $query->where('title', 'LIKE', '%' . $request->search . '%')
+                    ->where('can_assign_tasks', $user->id);
+            } else {
+
+                $query->where('can_assign_tasks', $user->id);
+            }
+            $tasks = $query->get();
+            $employees = collect();
         }
 
         return view('Task.index', compact('tasks', 'employees'));
     }
 
-
-
+    //create page open which is authorized
     public function create()
     {
         if (Gate::allows('create-task')) {
             return view('Task.create');
         }
 
-        // If not authorized, show a 403 error
         abort(403, 'This action is unauthorized.');
     }
 
+    //save task data with validation
     public function store(Request $request)
     {
         $user_id = Auth::user()->id;
@@ -57,7 +69,7 @@ class TaskController extends Controller
             'due_date' => $request->due_date,
             'status' => 'pending',
             'user_id' => $user_id,
-            'created_by' => Auth::id(), // Current admin
+            'created_by' => Auth::id(),
         ]);
 
         return redirect()->route('tasks.index')->with('success', 'Task created successfully.');
@@ -75,7 +87,7 @@ class TaskController extends Controller
     // Update the task in the database
     public function update(Request $request, Task $task)
     {
-        $this->authorize('update', $task); // Ensure the user can update this task
+        $this->authorize('update', $task);
 
         $request->validate([
             'title' => 'required|string|max:255',
@@ -85,53 +97,66 @@ class TaskController extends Controller
         ]);
 
         $task->update($request->all());
-
         return redirect()->route('tasks.index')->with('success', 'Task updated successfully.');
     }
 
     // Delete a task from the database
-    // app/Http/Controllers/TaskController.php
-
     public function destroy(Task $task)
     {
-        $this->authorize('delete', $task); // Authorize the delete action
-
-        // Proceed to delete the task
+        $this->authorize('delete', $task);
         $task->delete();
-
         return redirect()->route('tasks.index')->with('success', 'Task deleted successfully.');
     }
 
 
+    // Mark the task as completed
     public function markAsCompleted(Task $task)
     {
-
-        if (auth()->user()->id !== $task->assigned_to && auth()->user()->role !== 'admin') {
+        if (auth()->user()->id !== $task->can_assign_tasks && auth()->user()->role !== 'admin') {
             abort(403, 'Unauthorized to complete this task.');
         }
-
-        // Mark the task as completed
         $task->status = 'completed';
         $task->save();
-
         return redirect()->route('tasks.index')->with('success', 'Task marked as completed.');
     }
 
+    //create a assign page show with task id
     public function assignCreate($id)
     {
         $task = Task::findOrFail($id);
-        $employees = User::where('role', 'employee')->get(); // Fetch only employees
+        $employees = User::where('role', 'employee')->get();
 
         return view('Task.assign', compact('task', 'employees'));
     }
+
+    //only authorized assign the task
     public function assign(Request $request, Task $task)
     {
-
         $user_id = Auth::user()->id;
         $task->user_id = $user_id;
-        $task->can_assign_tasks = $request->can_assign_tasks; // Assume `assigned_to` is the user_id of the employee
+        $task->can_assign_tasks = $request->can_assign_tasks;
         $task->update();
-
         return redirect()->route('tasks.index')->with('success', 'Task assigned successfully.');
+    }
+
+    //open task permission page with only employee
+    public function createTaskPermissions()
+    {;
+        $employees = User::where('role', 'employee')->get();
+        return view('Task.create_tasks', compact('employees'));
+    }
+
+    //save task create permission with admin
+    public function updateEmployeePermissions(Request $request)
+    {
+        $employees = User::all();
+        foreach ($employees as $employee) {
+
+            if ($employee->id == $request->can_assign_tasks) {
+                $employee->can_create_tasks = $request->can_assign_tasks;
+                $employee->save();
+            }
+        }
+        return redirect()->route('tasks.index')->with('success', 'Permissions updated successfully');
     }
 }

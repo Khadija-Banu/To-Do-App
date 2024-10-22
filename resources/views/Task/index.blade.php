@@ -14,10 +14,28 @@
     <div class="container mt-5">
         <h1 class="mb-4">Your Tasks</h1>
 
-        <div class="d-flex justify-content-between mb-3">
-            <!-- Create Task Button (Left) -->
-            <a href="{{ route('tasks.create') }}" class="btn btn-primary">Create Task</a>
+        <!-- Search Form -->
+        <div class="w-25">
+            <form method="GET" action="{{ route('tasks.index') }}" class="mb-3">
+                <div class="input-group">
+                    <input type="text" name="search" class="form-control" placeholder="Search by title" value="{{ request('search') }}">
+                    <div class="input-group-append">
+                        <button type="submit" class="btn btn-primary">Search</button>
+                    </div>
+                </div>
+            </form>
+        </div>
 
+        <div class="d-flex justify-content-left mb-3">
+            <!-- Create Task Button (Left) -->
+
+            @if (auth()->user()->role === 'admin' || auth()->user()->can_create_tasks != 0)
+                <a href="{{ route('tasks.create') }}" class="btn btn-primary">Create Task</a>
+            @endif
+            @if (auth()->user()->role === 'admin')
+                <a href="{{ route('create.task.permission') }}" class="btn btn-sm btn-success mx-4">Create Task
+                    Permission</a>
+            @endif
             <!-- Logout Button (Right) -->
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
@@ -44,10 +62,7 @@
                             <td>{{ $task->description }}</td>
                             <td>{{ $task->due_date->format('Y-m-d') }}</td>
                             <td>
-
-                                <span class="badge badge-warning text-black">Pending</span>
-
-
+                                <span class="badge badge-warning text-black">{{$task->status}}</span>
                             </td>
                             <td>
                                 {{-- Mark as Completed if Pending --}}
@@ -60,17 +75,16 @@
                                     </form>
                                 @endif
 
-
-                                {{-- Admin Actions: Assign/Edit/Delete --}}
+                                {{-- Admin Actions --}}
                                 @if (auth()->user()->role === 'admin')
                                     <a href="{{ route('create.assign', $task->id) }}"
                                         class="btn btn-sm btn-primary">Assign Task</a>
-                                    {{-- Edit/Delete Actions --}}
+
+                                    {{-- Edit Actions --}}
                                     <a href="{{ route('tasks.edit', $task->id) }}"
                                         class="btn btn-sm btn-warning">Edit</a>
 
-
-                                    {{-- Admin Actions: Edit/Delete --}}
+                                    {{-- Admin Actions Delete --}}
                                     @if (auth()->user()->role === 'admin')
                                         <form action="{{ route('tasks.destroy', $task->id) }}" method="POST"
                                             style="display:inline-block;">
@@ -86,8 +100,7 @@
                 @endforeach
             </tbody>
         </table>
-
-
+        {{-- task is not available --}}
         @if ($tasks->isEmpty())
             <p>No tasks available.</p>
         @endif

@@ -36,6 +36,5 @@ Route::resource('tasks', TaskController::class)->middleware('auth');
 Route::patch('/tasks/{task}/complete', [TaskController::class, 'markAsCompleted'])->name('tasks.complete');
 Route::post('/tasks/{task}/assign', [TaskController::class, 'assign'])->name('tasks.assign');
 Route::get('/task/{id}', [TaskController::class, 'assignCreate'])->name('create.assign');
-
-
-
+Route::get('/create/task', [TaskController::class, 'createTaskPermissions'])->name('create.task.permission');
+Route::post('/create/task/assign', [TaskController::class, 'updateEmployeePermissions'])->name('create.task.assign');
